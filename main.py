@@ -8,6 +8,7 @@ import numpy as np
 
 # Încarcă datele
 df = pd.read_csv("farm_production_dataset.csv")
+df['Seeded area (acres)'].fillna(0, inplace=True)
 
 # Filtrare pentru cultura "Wheat, all" din Alberta (AB)
 df_filtered = df[(df["Type of crop"] == "Wheat, all") & (df["GEO"] == "AB")]
@@ -20,7 +21,9 @@ df_filtered.set_index("REF_DATE", inplace=True)
 df_selected = df_filtered[[
     "Average farm price (dollars per tonne)",
     "Average yield (kilograms per hectare)",
-    "Production (metric tonnes)"
+    "Production (metric tonnes)",
+    "Seeded area (acres)",
+    "Total farm value (dollars)"
 ]].copy()
 
 # Seria univariată pentru yield
@@ -40,6 +43,16 @@ print("HW forecast:\n", hw_forecast)
 arima_model = ARIMA(yield_series, order=(1,1,1)).fit()
 arima_forecast = arima_model.forecast(5)
 print("ARIMA forecast:\n", arima_forecast)
+
+
+forecast_object = arima_model.get_forecast(steps=5)
+forecast = forecast_object.predicted_mean  # Predicția punctuală
+conf_int = forecast_object.conf_int(alpha=0.05)  # Intervalul de încredere de 95%
+
+# Afișează predicțiile și intervalele de încredere
+print("Predicția punctuală:", forecast)
+print("Intervalul de încredere (95%):")
+print(conf_int)
 
 # Split pentru comparație între metode
 train = yield_series[:-5]
@@ -65,3 +78,17 @@ df_diff = df_selected.diff().dropna()
 var_model = VAR(df_diff)
 var_result = var_model.fit(maxlags=2)
 print("VAR AIC:", var_result.aic)
+
+
+
+from statsmodels.tsa.stattools import grangercausalitytests
+
+
+
+granger_result = grangercausalitytests(df_filtered[["Seeded area (acres)", "Total farm value (dollars)"]], maxlag=10, verbose=True)
+
+# Dacă vrei să testezi și pentru alte combinații de serii de timp
+granger_result_2 = grangercausalitytests(df_filtered[["Average yield (kilograms per hectare)", "Production (metric tonnes)"]], maxlag=5, verbose=True)
+
+
+
